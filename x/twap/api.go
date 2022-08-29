@@ -42,9 +42,13 @@ func (k Keeper) GetArithmeticTwap(
 	}
 	if endTime.Equal(ctx.BlockTime()) {
 		return k.GetArithmeticTwapToNow(ctx, poolId, baseAssetDenom, quoteAssetDenom, startTime)
-	} else if endTime.After(ctx.BlockTime()) {
+	}
+	if endTime.After(ctx.BlockTime()) {
 		return sdk.Dec{}, fmt.Errorf("called GetArithmeticTwap with an end time in the future."+
 			" (end time %s, current time %s)", endTime, ctx.BlockTime())
+	}
+	if err := validateStartTimeAfterKeepThreshold(ctx.BlockTime(), k.GetParams(ctx).RecordHistoryKeepPeriod, startTime); err != nil {
+		return sdk.Dec{}, err
 	}
 	startRecord, err := k.getInterpolatedRecord(ctx, poolId, startTime, baseAssetDenom, quoteAssetDenom)
 	if err != nil {
@@ -65,6 +69,10 @@ func (k Keeper) GetArithmeticTwapToNow(
 	baseAssetDenom string,
 	quoteAssetDenom string,
 	startTime time.Time) (sdk.Dec, error) {
+	if err := validateStartTimeAfterKeepThreshold(ctx.BlockTime(), k.GetParams(ctx).RecordHistoryKeepPeriod, startTime); err != nil {
+		return sdk.Dec{}, err
+	}
+
 	startRecord, err := k.getInterpolatedRecord(ctx, poolId, startTime, baseAssetDenom, quoteAssetDenom)
 	if err != nil {
 		return sdk.Dec{}, err
@@ -84,4 +92,12 @@ func (k Keeper) GetArithmeticTwapToNow(
 // This accumulator can be stored, to compute wider ranged twaps.
 func (k Keeper) GetBeginBlockAccumulatorRecord(ctx sdk.Context, poolId uint64, asset0Denom string, asset1Denom string) (types.TwapRecord, error) {
 	return k.getMostRecentRecord(ctx, poolId, asset0Denom, asset1Denom)
+}
+
+func validateStartTimeAfterKeepThreshold(blockTime time.Time, keepPeriod time.Duration, startTime time.Time) error {
+	if startTime.Before(blockTime.Add(-keepPeriod)) {
+		return fmt.Errorf("failed start time keep threshold validation. start time (%d) is earlier than "+
+			"the current block time (%d) - keep period (%.f)", startTime.Unix(), blockTime.Unix(), keepPeriod.Seconds())
+	}
+	return nil
 }
