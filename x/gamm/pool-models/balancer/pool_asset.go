@@ -1,7 +1,6 @@
 package balancer
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
@@ -15,9 +14,9 @@ import (
 
 // Validates a pool asset, to check if it has a valid weight.
 func (asset PoolAsset) ValidateWeight() error {
-	if asset.Weight.LTE(sdk.ZeroInt()) {
-		return fmt.Errorf("a token's weight in the pool must be greater than 0")
-	}
+	// if asset.Weight.LTE(sdk.ZeroInt()) {
+	// 	return fmt.Errorf("a token's weight in the pool must be greater than 0")
+	// }
 
 	// TODO: Choose a value that is too large for weights
 	// if asset.Weight >= (1 << 32) {
@@ -80,21 +79,21 @@ func SortPoolAssetsByDenom(assets []PoolAsset) {
 
 func ValidateUserSpecifiedPoolAssets(assets []PoolAsset) error {
 	// The pool must be swapping between at least two assets
-	if len(assets) < 2 {
+	if len(assets) != 2 {
 		return types.ErrTooFewPoolAssets
 	}
 
-	// TODO: Add the limit of binding token to the pool params?
-	if len(assets) > 8 {
-		return sdkerrors.Wrapf(types.ErrTooManyPoolAssets, "%d", len(assets))
-	}
+	// // TODO: Add the limit of binding token to the pool params?
+	// if len(assets) > 8 {
+	// 	return sdkerrors.Wrapf(types.ErrTooManyPoolAssets, "%d", len(assets))
+	// }
 
 	assetExistsMap := map[string]bool{}
 	for _, asset := range assets {
-		err := ValidateUserSpecifiedWeight(asset.Weight)
-		if err != nil {
-			return err
-		}
+		// err := ValidateUserSpecifiedWeight(asset.Weight)
+		// if err != nil {
+		// 	return err
+		// }
 
 		if !asset.Token.IsValid() || !asset.Token.IsPositive() {
 			return sdkerrors.Wrap(sdkerrors.ErrInvalidCoins, asset.Token.String())

@@ -164,7 +164,7 @@ func (k Keeper) CreatePool(ctx sdk.Context, msg types.CreatePoolMsg) (uint64, er
 		return 0, err
 	}
 
-	k.hooks.AfterPoolCreated(ctx, sender, pool.GetId())
+	// k.hooks.AfterPoolCreated(ctx, sender, pool.GetId())
 	k.RecordTotalLiquidityIncrease(ctx, initialPoolLiquidity)
 
 	return pool.GetId(), nil

@@ -7,7 +7,7 @@ var (
 	ErrPoolNotFound        = sdkerrors.Register(ModuleName, 1, "pool not found")
 	ErrPoolAlreadyExist    = sdkerrors.Register(ModuleName, 2, "pool already exist")
 	ErrPoolLocked          = sdkerrors.Register(ModuleName, 3, "pool is locked")
-	ErrTooFewPoolAssets    = sdkerrors.Register(ModuleName, 4, "pool should have at least 2 assets, as they must be swapping between at least two assets")
+	ErrTooFewPoolAssets    = sdkerrors.Register(ModuleName, 4, "pool should have 2 assets, as they must be swapping between two assets")
 	ErrTooManyPoolAssets   = sdkerrors.Register(ModuleName, 5, "pool has too many assets (currently capped at 8 assets per balancer pool and 2 per stableswap)")
 	ErrLimitMaxAmount      = sdkerrors.Register(ModuleName, 6, "calculated amount is larger than max amount")
 	ErrLimitMinAmount      = sdkerrors.Register(ModuleName, 7, "calculated amount is lesser than min amount")
@@ -31,6 +31,7 @@ var (
 
 	ErrPoolParamsInvalidDenom     = sdkerrors.Register(ModuleName, 50, "pool params' LBP params has an invalid denomination")
 	ErrPoolParamsInvalidNumDenoms = sdkerrors.Register(ModuleName, 51, "pool params' LBP doesn't have same number of params as underlying pool")
+	ErrPoolLiquidityNotFound      = sdkerrors.Register(ModuleName, 52, "requested liquidity not found")
 
 	ErrNotImplemented = sdkerrors.Register(ModuleName, 60, "function not implemented")
 

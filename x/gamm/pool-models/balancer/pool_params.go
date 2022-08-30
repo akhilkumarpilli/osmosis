@@ -39,13 +39,13 @@ func (params PoolParams) Validate(poolWeights []PoolAsset) error {
 		if len(targetWeights) != len(poolWeights) {
 			return types.ErrPoolParamsInvalidNumDenoms
 		}
-		// Validate all user specified weights
-		for _, v := range targetWeights {
-			err := ValidateUserSpecifiedWeight(v.Weight)
-			if err != nil {
-				return err
-			}
-		}
+		// // Validate all user specified weights
+		// for _, v := range targetWeights {
+		// 	err := ValidateUserSpecifiedWeight(v.Weight)
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// }
 		// Ensure that all the target weight denoms are same as pool asset weights
 		sortedTargetPoolWeights := SortPoolAssetsOutOfPlaceByDenom(targetWeights)
 		sortedPoolWeights := SortPoolAssetsOutOfPlaceByDenom(poolWeights)

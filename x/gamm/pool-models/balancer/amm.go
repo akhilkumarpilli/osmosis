@@ -98,14 +98,14 @@ func solveConstantFunctionInvariant(
 	tokenBalanceUnknownBefore,
 	tokenWeightUnknown sdk.Dec,
 ) sdk.Dec {
-	// weightRatio = (weightX/weightY)
-	weightRatio := tokenWeightFixed.Quo(tokenWeightUnknown)
+	// // weightRatio = (weightX/weightY)
+	// weightRatio := tokenWeightFixed.Quo(tokenWeightUnknown)
 
 	// y = balanceXBefore/balanceXAfter
 	y := tokenBalanceFixedBefore.Quo(tokenBalanceFixedAfter)
 
 	// amountY = balanceY * (1 - (y ^ weightRatio))
-	yToWeightRatio := osmomath.Pow(y, weightRatio)
+	yToWeightRatio := osmomath.Pow(y, sdk.NewDec(1))
 	paranthetical := sdk.OneDec().Sub(yToWeightRatio)
 	amountY := tokenBalanceUnknownBefore.Mul(paranthetical)
 	return amountY

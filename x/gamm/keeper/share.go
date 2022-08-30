@@ -24,7 +24,7 @@ func (k Keeper) applyJoinPoolStateChange(ctx sdk.Context, pool types.PoolI, join
 	}
 
 	events.EmitAddLiquidityEvent(ctx, joiner, pool.GetId(), joinCoins)
-	k.hooks.AfterJoinPool(ctx, joiner, pool.GetId(), joinCoins, numShares)
+	// k.hooks.AfterJoinPool(ctx, joiner, pool.GetId(), joinCoins, numShares)
 	k.RecordTotalLiquidityIncrease(ctx, joinCoins)
 	return nil
 }
@@ -46,7 +46,7 @@ func (k Keeper) applyExitPoolStateChange(ctx sdk.Context, pool types.PoolI, exit
 	}
 
 	events.EmitRemoveLiquidityEvent(ctx, exiter, pool.GetId(), exitCoins)
-	k.hooks.AfterExitPool(ctx, exiter, pool.GetId(), numShares, exitCoins)
+	// k.hooks.AfterExitPool(ctx, exiter, pool.GetId(), numShares, exitCoins)
 	k.RecordTotalLiquidityDecrease(ctx, exitCoins)
 	return nil
 }

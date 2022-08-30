@@ -183,21 +183,21 @@ func (pa *Pool) setInitialPoolParams(params PoolParams, sortedAssets []PoolAsset
 		}
 		params.SmoothWeightChangeParams.InitialPoolWeights = initialWeights
 
-		// sort target weights by denom
-		targetPoolWeights := params.SmoothWeightChangeParams.TargetPoolWeights
-		SortPoolAssetsByDenom(targetPoolWeights)
+		// // sort target weights by denom
+		// targetPoolWeights := params.SmoothWeightChangeParams.TargetPoolWeights
+		// SortPoolAssetsByDenom(targetPoolWeights)
 
-		// scale target pool weights by GuaranteedWeightPrecision
-		for i, v := range targetPoolWeights {
-			err := ValidateUserSpecifiedWeight(v.Weight)
-			if err != nil {
-				return err
-			}
-			pa.PoolParams.SmoothWeightChangeParams.TargetPoolWeights[i] = PoolAsset{
-				Weight: v.Weight.MulRaw(GuaranteedWeightPrecision),
-				Token:  v.Token,
-			}
-		}
+		// // scale target pool weights by GuaranteedWeightPrecision
+		// for i, v := range targetPoolWeights {
+		// 	// err := ValidateUserSpecifiedWeight(v.Weight)
+		// 	// if err != nil {
+		// 	// 	return err
+		// 	// }
+		// 	pa.PoolParams.SmoothWeightChangeParams.TargetPoolWeights[i] = PoolAsset{
+		// 		Weight: v.Weight.MulRaw(GuaranteedWeightPrecision),
+		// 		Token:  v.Token,
+		// 	}
+		// }
 
 		// Set start time if not present.
 		if params.SmoothWeightChangeParams.StartTime.Unix() <= 0 {
@@ -510,6 +510,60 @@ func (p Pool) CalcOutAmtGivenIn(
 	return sdk.NewCoin(tokenOutDenom, tokenAmountOutInt), nil
 }
 
+func (p Pool) CFMMCalculation(
+	ctx sdk.Context,
+	tokensIn sdk.Coins,
+	tokenOutDenom string,
+	swapFee sdk.Dec,
+) (sdk.Coin, error) {
+	var XLimit, YUHTValue, ZUHTValue int64 = 10000, 2, 1
+	tokenIn, poolAssetIn, poolAssetOut, err := p.parsePoolAssets(tokensIn, tokenOutDenom)
+	if err != nil {
+		return sdk.Coin{}, err
+	}
+
+	tokenAmountOutInt := sdk.NewInt(0)
+
+	if poolAssetIn.Token.Denom == "uht" {
+		if poolAssetOut.Token.Amount.IsZero() {
+			return sdk.Coin{}, sdkerrors.Wrapf(types.ErrPoolLiquidityNotFound, "liquidity of %s is 0",
+				poolAssetOut.Token.Denom)
+		}
+		if poolAssetIn.Weight.IsPositive() {
+			// Transferring UHT in exchange for Atoms back should exchange
+			// them at the average rate based on the Atoms to UHT ratio locked
+			// in the AMM
+			eachTokenValue := poolAssetIn.Weight.ToDec().Quo(poolAssetOut.Token.Amount.ToDec())
+			if !eachTokenValue.IsZero() {
+				tokenAmountOut := tokenIn.Amount.ToDec().Quo(eachTokenValue)
+				// We ignore the decimal component, as we round down the token amount out.
+				tokenAmountOutInt = tokenAmountOut.TruncateInt()
+			}
+		}
+	} else {
+		var tokenAmountOut sdk.Dec
+		// For the first X Atoms, Y UHT is issued per Atom
+		if poolAssetIn.Token.Amount.ToDec().TruncateInt().Abs().LT(sdk.NewInt(XLimit)) {
+			tokenAmountOut = tokenIn.Amount.ToDec().Quo(sdk.NewDec(YUHTValue))
+		} else {
+			// After X Atoms are locked/exchanged, Z UHT are issued per Atom.
+			tokenAmountOut = tokenIn.Amount.ToDec().Quo(sdk.NewDec(ZUHTValue))
+		}
+		tokenAmountOutInt = tokenAmountOut.TruncateInt()
+	}
+
+	if !tokenAmountOutInt.IsPositive() {
+		return sdk.Coin{}, sdkerrors.Wrapf(types.ErrInvalidMathApprox, "return token amount must be positive")
+	}
+
+	if tokenAmountOutInt.ToDec().RoundInt().Abs().GT(poolAssetOut.Token.Amount) {
+		return sdk.Coin{}, sdkerrors.Wrapf(sdkerrors.ErrInsufficientFunds,
+			fmt.Sprintf("%s is greater than %s", tokenAmountOutInt, poolAssetOut.Token.Amount))
+	}
+
+	return sdk.NewCoin(tokenOutDenom, tokenAmountOutInt), nil
+}
+
 // SwapOutAmtGivenIn is a mutative method for CalcOutAmtGivenIn, which includes the actual swap.
 func (p *Pool) SwapOutAmtGivenIn(
 	ctx sdk.Context,
@@ -519,7 +573,7 @@ func (p *Pool) SwapOutAmtGivenIn(
 ) (
 	tokenOut sdk.Coin, err error,
 ) {
-	tokenOutCoin, err := p.CalcOutAmtGivenIn(ctx, tokensIn, tokenOutDenom, swapFee)
+	tokenOutCoin, err := p.CFMMCalculation(ctx, tokensIn, tokenOutDenom, swapFee)
 	if err != nil {
 		return sdk.Coin{}, err
 	}
@@ -592,6 +646,21 @@ func (p *Pool) applySwap(ctx sdk.Context, tokensIn sdk.Coins, tokensOut sdk.Coin
 	}
 	inPoolAsset.Token.Amount = inPoolAsset.Token.Amount.Add(tokensIn[0].Amount)
 	outPoolAsset.Token.Amount = outPoolAsset.Token.Amount.Sub(tokensOut[0].Amount)
+
+	// update weights based on tokens issued and received
+	inAssetIndex, inAsset, err := p.getPoolAssetAndIndex(tokensIn[0].Denom)
+	if err != nil {
+		return err
+	}
+	inAsset.Weight = inPoolAsset.Weight.Sub(tokensIn[0].Amount)
+	p.PoolAssets[inAssetIndex] = inAsset
+
+	outAssetIndex, outAsset, err := p.getPoolAssetAndIndex(tokensOut[0].Denom)
+	if err != nil {
+		return err
+	}
+	outAsset.Weight = outAsset.Weight.Add(tokensOut[0].Amount)
+	p.PoolAssets[outAssetIndex] = outAsset
 
 	return p.UpdatePoolAssetBalances(sdk.NewCoins(
 		inPoolAsset.Token,
